@@ -6,12 +6,14 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Net.WebSockets;
+//using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web.Script.Serialization;
 using System.Windows.Forms;
+
+using WebSocketSharp;
 
 namespace FocalsMessenger
 {
@@ -35,6 +37,11 @@ namespace FocalsMessenger
             public string notes { get; set; }
             public int slide_number { get; set; }
             public int total_slides { get; set; }
+        }
+
+        class SocketResonse
+        {
+            public string type { get; set; }
         }
 
         private string getPresentationCode()
@@ -67,68 +74,100 @@ namespace FocalsMessenger
 
         private string convertCodeToLetters(string presentationCode)
         {
-            //I'm lazy, this works.
+            //Numeric codes are just a cipher mapping to A-E
             return presentationCode
                 .Replace('0', 'A')
                 .Replace('1', 'B')
                 .Replace('2', 'C')
                 .Replace('3', 'D')
-                .Replace('4', 'E')
-                .Replace('5', 'F')
-                .Replace('6', 'G');
+                .Replace('4', 'E');
         }
 
-        private string presentationCode = "";
-        private Boolean isConnected = false;
-
-
-        private static async Task ChatWithServer(string presentationCode)
-        {
-            using (ClientWebSocket ws = new ClientWebSocket())
-            {
-                Uri serverUri = new Uri("ws://north-teleprompter.herokuapp.com:80/?presentation_code=" + presentationCode + "&role=browser_extension");
-                await ws.ConnectAsync(serverUri, CancellationToken.None);
-                while (true)
-                {
-
-                    Thread.Sleep(10000);
-                    string json = new JavaScriptSerializer().Serialize(new
-                    {
-                        type = "current_state",
-                        data = new SlideData() { state="current_state", title="muh title", notes="notes go here", slide_number=1, total_slides=2 }
-                    });
-                    Console.WriteLine(json);
-
-                    ArraySegment<byte> bytesToSend = new ArraySegment<byte>(
-                        Encoding.UTF8.GetBytes(json));
-                    await ws.SendAsync(
-                        bytesToSend, WebSocketMessageType.Text,
-                        true, CancellationToken.None);
-                    ArraySegment<byte> bytesReceived = new ArraySegment<byte>(new byte[1024]);
-                    WebSocketReceiveResult result = await ws.ReceiveAsync(
-                        bytesReceived, CancellationToken.None);
-                    Console.WriteLine(Encoding.UTF8.GetString(
-                        bytesReceived.Array, 0, result.Count));
-                    if (ws.State != WebSocketState.Open)
-                    {
-                        break;
-                    }
-                }
-            }
-        }
+        //private string presentationCode = "";
+        
         private void Button1_Click(object sender, EventArgs e)
         {
             
-            Console.WriteLine("WHATR");
-            presentationCode = getPresentationCode();
-            Console.WriteLine(presentationCode);
+            Console.WriteLine("Connect Clicked");
+            string presentationCode = getPresentationCode();
+            Console.WriteLine("Presentation Code: " + presentationCode);
             button1.Text = convertCodeToLetters(presentationCode);
+            ws = createSocket(presentationCode);
+            ws.Connect();
         }
+
+
+        WebSocket ws;
+        private WebSocket createSocket(string presentationCode)
+        {
+            var sock = new WebSocket("ws://north-teleprompter.herokuapp.com:80/?presentation_code=" + presentationCode + "&role=browser_extension");
+            sock.OnOpen += (sender, e) => {
+                button2.Text = "Connected!";
+            };
+
+            sock.EmitOnPing = true;
+            sock.OnMessage += (sender, e) => {
+                if (e.IsPing)
+                {
+                    Console.WriteLine("PING RECEIVED: " + e.Data.ToString());
+                    return;
+                }
+
+
+
+                if (e.IsText)
+                {
+                    Console.WriteLine("Message Received: " + e.Data.ToString());
+                    SocketResonse response = new JavaScriptSerializer().Deserialize<SocketResonse>(e.Data);
+                    processResponse(response);
+                    return;
+                }
+
+                if (e.IsBinary)
+                {
+                    Console.WriteLine("Binary Message Received... Shit.");
+                    return;
+                }
+
+            };
+            return sock;
+        }
+
+
+
+        private void processResponse(SocketResonse response)
+        {
+            if (response.type == "connected")
+            {
+                string json = new JavaScriptSerializer().Serialize(new
+                {
+                    type = "current_state",
+                    data = new SlideData() { state = "currently_presenting", title = "Test Title 1", notes = "Nooooootes", slide_number = 1, total_slides = 2 }
+                });
+                ws.Send(json);
+            }
+        }
+
 
         private void Button2_Click(object sender, EventArgs e)
         {
-            Task t = ChatWithServer(presentationCode);
-            t.Wait();
+            
+
+            
+
+        }
+
+        private void Button3_Click(object sender, EventArgs e)
+        { 
+            string json = new JavaScriptSerializer().Serialize(new
+            {
+                type = "current_state",
+                data = new SlideData() { state = "currently_presenting", title = null, notes = "Suuuuuuuuuuuuuper long text thing. ", slide_number = 2, total_slides = 5 }
+            });
+
+            ArraySegment<byte> bytesToSend = new ArraySegment<byte>(
+                        Encoding.UTF8.GetBytes(json));
+            ws.Send(json);
         }
     }
 }
