@@ -125,12 +125,7 @@ namespace FocalsMessenger
         {
             if (response.type == "connected")
             {
-                string json = new JavaScriptSerializer().Serialize(new
-                {
-                    type = "current_state",
-                    data = new SlideData() { state = "currently_presenting", title = "Test Title 1", notes = "Nooooootes", slide_number = 1, total_slides = 2 }
-                });
-                ws.Send(json);
+                sendSlide();
             }
 
             else if (response.type == "next_slide")
@@ -143,8 +138,6 @@ namespace FocalsMessenger
                 decrementSlide();
             }
         }
-
-
 
         delegate void SetTextCallback(string text);
 
@@ -245,12 +238,12 @@ namespace FocalsMessenger
         {
             richTextBox1.SelectAll();
             richTextBox1.SelectionBackColor = richTextBox1.BackColor;
-            if (lineNumber < 0 || lineNumber > richTextBox1.Lines.Length)
+            if (lineNumber < 0 || lineNumber >= richTextBox1.Lines.Length)
             {
                 return;
             }
             var startIndex = richTextBox1.GetFirstCharIndexFromLine(lineNumber);
-            richTextBox1.Select(startIndex, startIndex + richTextBox1.Lines[lineNumber].Length);
+            richTextBox1.Select(startIndex, richTextBox1.Lines[lineNumber].Length);
             richTextBox1.SelectionBackColor = Color.CornflowerBlue;
         }
     }
