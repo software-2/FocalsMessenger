@@ -189,6 +189,11 @@ namespace FocalsMessenger
         delegate void sendSlideCallback();
         private void sendSlide()
         {
+            if (ws == null || !ws.IsAlive)
+            {
+                return;
+            }
+
             if (this.textBox1.InvokeRequired || this.richTextBox1.InvokeRequired)
             {
                 sendSlideCallback d = new sendSlideCallback(sendSlide);

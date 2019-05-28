@@ -72,6 +72,7 @@
             this.richTextBox1.Size = new System.Drawing.Size(754, 361);
             this.richTextBox1.TabIndex = 3;
             this.richTextBox1.Text = "One\nTwo\nThree\nFour\nFive\nSix\nSeven\nEight\n";
+            this.richTextBox1.WordWrap = false;
             // 
             // textBox1
             // 
