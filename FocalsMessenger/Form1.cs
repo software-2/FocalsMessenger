@@ -1,15 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
 using System.Drawing;
 using System.IO;
-using System.Linq;
 using System.Net;
-//using System.Net.WebSockets;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Web.Script.Serialization;
 using System.Windows.Forms;
 
@@ -98,7 +91,7 @@ namespace FocalsMessenger
             sock.OnMessage += (sender, e) => {
                 if (e.IsPing)
                 {
-                    Console.WriteLine("PING RECEIVED: " + e.Data.ToString());
+                    Console.WriteLine("Ping Received: " + e.Data.ToString());
                     return;
                 }
 
