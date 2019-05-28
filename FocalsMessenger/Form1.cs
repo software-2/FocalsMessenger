@@ -24,7 +24,6 @@ namespace FocalsMessenger
             InitializeComponent();
         }
 
-
         class Response
         {
             public string accessCode { get; set; }
@@ -50,17 +49,6 @@ namespace FocalsMessenger
             httpWebRequest.ContentType = "application/json";
             httpWebRequest.Method = "POST";
 
-            using (var streamWriter = new StreamWriter(httpWebRequest.GetRequestStream()))
-            {
-                string json = new JavaScriptSerializer().Serialize(new
-                {
-                    state = "presentation_focused",
-                    title = "Muh Presentation Hax"
-                });
-
-                streamWriter.Write(json);
-            }
-
             var httpResponse = (HttpWebResponse)httpWebRequest.GetResponse();
             using (var streamReader = new StreamReader(httpResponse.GetResponseStream()))
             {
@@ -83,11 +71,8 @@ namespace FocalsMessenger
                 .Replace('4', 'E');
         }
 
-        //private string presentationCode = "";
-        
         private void Button1_Click(object sender, EventArgs e)
         {
-            
             Console.WriteLine("Connect Clicked");
             string presentationCode = getPresentationCode();
             Console.WriteLine("Presentation Code: " + presentationCode);
@@ -102,7 +87,11 @@ namespace FocalsMessenger
         {
             var sock = new WebSocket("ws://north-teleprompter.herokuapp.com:80/?presentation_code=" + presentationCode + "&role=browser_extension");
             sock.OnOpen += (sender, e) => {
-                button2.Text = "Connected!";
+                Console.WriteLine("Connected socket!");
+            };
+
+            sock.OnClose += (sender, e) => {
+                button1.Text = "Click To Restart";
             };
 
             sock.EmitOnPing = true;
@@ -112,8 +101,6 @@ namespace FocalsMessenger
                     Console.WriteLine("PING RECEIVED: " + e.Data.ToString());
                     return;
                 }
-
-
 
                 if (e.IsText)
                 {
@@ -134,7 +121,6 @@ namespace FocalsMessenger
         }
 
 
-
         private void processResponse(SocketResonse response)
         {
             if (response.type == "connected")
@@ -146,28 +132,126 @@ namespace FocalsMessenger
                 });
                 ws.Send(json);
             }
+
+            else if (response.type == "next_slide")
+            {
+                incrementSlide();
+            }
+
+            else if (response.type == "previous_slide")
+            {
+                decrementSlide();
+            }
         }
 
+
+
+        delegate void SetTextCallback(string text);
+
+        private void SetText(string text)
+        {
+            if (this.textBox1.InvokeRequired || this.richTextBox1.InvokeRequired)
+            {
+                SetTextCallback d = new SetTextCallback(SetText);
+                this.Invoke(d, new object[] { text });
+            }
+            else
+            {
+                this.textBox1.Text = text;
+                int lineNumber = 0;
+                if (Int32.TryParse(textBox1.Text, out lineNumber))
+                {
+                    highlightLine(lineNumber);
+                }
+            }
+        }
+
+        private void decrementSlide()
+        {
+            int lineNumber = 0;
+            if (!Int32.TryParse(textBox1.Text, out lineNumber))
+            {
+                lineNumber = -1;
+            }
+            lineNumber--;
+            SetText(lineNumber.ToString());
+            sendSlide();
+        }
+
+        private void incrementSlide()
+        {
+            int lineNumber = 0;
+            if (!Int32.TryParse(textBox1.Text, out lineNumber))
+            {
+                lineNumber = -1;
+            }
+            lineNumber++;
+            SetText(lineNumber.ToString());
+            sendSlide();
+        }
 
         private void Button2_Click(object sender, EventArgs e)
         {
-            
-
-            
-
+            decrementSlide();
         }
 
         private void Button3_Click(object sender, EventArgs e)
-        { 
+        {
+            incrementSlide();
+        }
+
+        delegate void sendSlideCallback();
+        private void sendSlide()
+        {
+            if (this.textBox1.InvokeRequired || this.richTextBox1.InvokeRequired)
+            {
+                sendSlideCallback d = new sendSlideCallback(sendSlide);
+                this.Invoke(d, new object[] { });
+                return;
+            }
+
+            int lineNumber = 0;
+            if (!Int32.TryParse(textBox1.Text, out lineNumber))
+            {
+                lineNumber = -1;
+            }
+
+            var index = Math.Min(richTextBox1.Lines.Length, lineNumber);
+            string notes;
+
+            if (index >= 0 && index <= richTextBox1.Lines.Length)
+            {
+                notes = richTextBox1.Lines[index];
+                
+            }
+            else
+            {
+                index = 0;
+                notes = "Invalid line number sent. Oh noes!";
+            }
+
             string json = new JavaScriptSerializer().Serialize(new
             {
                 type = "current_state",
-                data = new SlideData() { state = "currently_presenting", title = null, notes = "Suuuuuuuuuuuuuper long text thing. ", slide_number = 2, total_slides = 5 }
+                data = new SlideData() { state = "currently_presenting", title = null, notes = notes, slide_number = -1 /*Disables title*/, total_slides = richTextBox1.Lines.Length }
             });
 
             ArraySegment<byte> bytesToSend = new ArraySegment<byte>(
                         Encoding.UTF8.GetBytes(json));
             ws.Send(json);
+        }
+
+        private void highlightLine(int lineNumber)
+        {
+            richTextBox1.SelectAll();
+            richTextBox1.SelectionBackColor = richTextBox1.BackColor;
+            if (lineNumber < 0 || lineNumber > richTextBox1.Lines.Length)
+            {
+                return;
+            }
+            var startIndex = richTextBox1.GetFirstCharIndexFromLine(lineNumber);
+            richTextBox1.Select(startIndex, startIndex + richTextBox1.Lines[lineNumber].Length);
+            richTextBox1.SelectionBackColor = Color.CornflowerBlue;
         }
     }
 }
